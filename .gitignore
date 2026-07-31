@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.env.*
+.pytest_cache/
+.ruff_cache/
+
+# Node / React
+node_modules/
+dist/
+*.local
+
+# IDE
+.vscode/
+.idea/
+
+# AWS
+.aws-sam/
+*.tfstate*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+*.pem
+*.key
+credentials*
