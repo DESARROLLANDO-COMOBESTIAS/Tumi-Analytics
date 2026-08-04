@@ -601,6 +601,8 @@ Despliegue a AWS solo para demo/integración → ~$0-15/mes
 
 Cada fase entrega algo funcional y se valida **en local** antes de tocar AWS. El orden minimiza riesgo: primero los ETL simples, luego el riesgo mayor (Overpass), y el ML/IA al final cuando ya hay datos acumulados.
 
+> **Estado actual (ago 2026):** Fases 0, 1, 2 y 3 completadas en local (monorepo, star schema, ETL Open-Meteo/ExchangeRate y ETL diario de POIs con 25 ciudades + 13 sitios famosos, 24 categorías). Siguiente: Fase 4 (backend hexagonal).
+
 ## Fase 0 — Base del proyecto
 - **Objetivo**: repositorio y entorno local listos.
 - **Entregables**: `git init` + `.gitignore`, docker-compose (PostgreSQL), estructura del monorepo, ruff + pytest configurados.
@@ -616,10 +618,17 @@ Cada fase entrega algo funcional y se valida **en local** antes de tocar AWS. El
 - **Entregables**: Lambdas corriendo con SAM Local, JSON crudo en S3 (LocalStack), datos en PostgreSQL.
 - **Mejores prácticas**: ETL idempotente, `last_sync` por fuente, logging estructurado, tests unitarios del transform.
 
-## Fase 3 — Spike Overpass / OpenTripMap
-- **Objetivo**: validar la calidad de POIs en Perú antes de construir.
-- **Entregables**: script que trae Cusco y Arequipa por bounding box y muestra conteos por categoría.
-- **Mejores prácticas**: validar categorías y volúmenes primero; caché en S3; documentar los límites de la API.
+## Fase 3 — Overpass / OpenTripMap (POIs)
+- **Objetivo**: ETL diario de POIs con diseño robusto (no adivinar categorías).
+- **Entregables**: captura amplia por bounding box por ciudad (tourism/historic/leisure/natural/amenity), consultas por clave para evitar timeouts, failover entre servidores Overpass, caché en S3, clasificación en 24 categorías de negocio que crecen con datos reales, alerta `sin_clasificar`, carga en `fact_poi_city`, y **catálogo curado de sitios famosos fuera del bbox de su ciudad** (Machu Picchu, Misti, Titicaca, Colca, etc.) con soporte multi-punto.
+- **Mejores prácticas**: validar categorías y volúmenes primero; caché en S3; reintentos y failover; snapshot diario en la BD (sin filas fantasma); censos periódicos del `sin_clasificar` para descubrir categorías nuevas.
+
+### Catálogo de sitios famosos (a futuro — panel de Admin)
+El catálogo curado de sitios se alimentará **manualmente desde el panel de Admin** cuando exista el frontend. Para eso, el catálogo debe vivir en un **archivo YAML/JSON separado** (no en código) que el ETL lea al arrancar:
+- **Búsqueda**: en el panel, el Admin busca un lugar por nombre (Nominatim/Overpass), revisa las coincidencias (nombre, etiquetas, coordenadas) y lo selecciona.
+- **Alta**: el lugar se agrega al catálogo con su ciudad de atribución y radio de bbox. El ETL lo cuenta diario con la misma caché.
+- **Anti doble conteo**: el sistema detecta si el lugar ya cae dentro del bbox de su ciudad y avisa antes de atribuirlo.
+- **Alcance**: esta función es posterior al frontend; hoy el catálogo se edita como datos en `famous_sites.py`.
 
 ## Fase 4 — Backend hexagonal
 - **Objetivo**: API de KPIs y ciudades.
@@ -667,3 +676,4 @@ Cada fase entrega algo funcional y se valida **en local** antes de tocar AWS. El
 - Reportes automáticos PDF
 - Agentes IA especializados
 - Recomendaciones inteligentes
+- **Alta manual de sitios turísticos desde el panel de Admin**: catálogo de sitios famosos en archivo YAML/JSON (editable sin tocar código), búsqueda en OSM por nombre desde el panel, atribución de ciudad con detección de doble conteo. Ver sección de Fase 3.

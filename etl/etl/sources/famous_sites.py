@@ -37,9 +37,12 @@ FAMOUS_SITES: list[dict] = [
     {
         "name": "Cañón del Colca",
         "city": "Arequipa",
-        "latitude": -15.6464,
-        "longitude": -71.8933,
-        "radius_deg": 0.03,
+        "points": [
+            # Chivay: núcleo turístico (hoteles, restaurantes, info).
+            {"latitude": -15.6367, "longitude": -71.6006, "radius_deg": 0.025},
+            # Mirador Cruz del Cóndor: el atractivo del cañón.
+            {"latitude": -15.6111, "longitude": -71.9064, "radius_deg": 0.025},
+        ],
     },
     {
         "name": "Volcán Misti",
@@ -51,9 +54,12 @@ FAMOUS_SITES: list[dict] = [
     {
         "name": "Lago Titicaca",
         "city": "Puno",
-        "latitude": -15.8267,
-        "longitude": -69.3238,
-        "radius_deg": 0.05,
+        "points": [
+            # Isla Taquile: hospedajes y restaurantes (fuera del bbox de Puno).
+            {"latitude": -15.7658, "longitude": -69.6860, "radius_deg": 0.03},
+            # Isla Amantani: marina y hospedajes.
+            {"latitude": -15.6689, "longitude": -69.7046, "radius_deg": 0.03},
+        ],
     },
     {
         "name": "Huacachina",
@@ -114,6 +120,19 @@ FAMOUS_SITES: list[dict] = [
 ]
 
 
+def site_points(site: dict) -> list[dict]:
+    """Puntos de consulta de un sitio (uno o varios bboxes por sitio)."""
+    if "points" in site:
+        return site["points"]
+    return [
+        {
+            "latitude": site["latitude"],
+            "longitude": site["longitude"],
+            "radius_deg": site.get("radius_deg", 0.02),
+        }
+    ]
+
+
 def fetch_site(
     site: dict,
     client,
@@ -121,35 +140,53 @@ def fetch_site(
     refresh: bool = False,
     day: dt.date | None = None,
 ) -> tuple[dict, str, str]:
-    """Trae los POIs del bbox de un sitio famoso; usa caché S3 salvo ``refresh``."""
+    """Trae los POIs de un sitio famoso; usa caché S3 salvo ``refresh``.
+
+    Un sitio puede definir varios puntos (bboxes) — p. ej. un cañón con su
+    núcleo turístico y su mirador — y se fusionan sin duplicados.
+    """
     day = day or dt.date.today()
-    lat = float(site["latitude"])
-    lon = float(site["longitude"])
-    radius = float(site.get("radius_deg", 0.02))
-    bbox = (lat - radius, lon - radius, lat + radius, lon + radius)
-    key = f"overpass/famous/{day.isoformat()}/{slugify(site['name'])}.json"
+    slug = slugify(site["name"])
+    merged: dict[tuple[str, int], dict] = {}
+    keys: list[str] = []
+    all_cached = True
+    for index, point in enumerate(site_points(site)):
+        lat = float(point["latitude"])
+        lon = float(point["longitude"])
+        radius = float(point.get("radius_deg", 0.02))
+        bbox = (lat - radius, lon - radius, lat + radius, lon + radius)
+        key = f"overpass/famous/{day.isoformat()}/{slug}_p{index}.json"
 
-    if not refresh and s3.object_exists(client, BRONZE_BUCKET, key):
-        envelope = s3.get_json(client, BRONZE_BUCKET, key)
-        logger.info("overpass_used_cache site=%s key=%s", site["name"], key)
-        return envelope["payload"], key, "cache"
+        if not refresh and s3.object_exists(client, BRONZE_BUCKET, key):
+            envelope = s3.get_json(client, BRONZE_BUCKET, key)
+            payload = envelope["payload"]
+            source = "cache"
+        else:
+            time.sleep(RATE_LIMIT_SECONDS)
+            payload = fetch_bbox(bbox)
+            envelope = {
+                "_meta": {
+                    "source": "overpass",
+                    "site": site["name"],
+                    "point": index,
+                    "bbox": list(bbox),
+                    "fetched_at": dt.datetime.now(dt.UTC).isoformat(),
+                },
+                "payload": payload,
+            }
+            s3.put_json(client, BRONZE_BUCKET, key, envelope)
+            source = "extract"
+            all_cached = False
+        keys.append(key)
+        logger.info(
+            "overpass_extracted site=%s point=%d source=%s elements=%d",
+            site["name"], index, source, len(payload.get("elements", [])),
+        )
+        for element in payload.get("elements", []):
+            merged[(element.get("type", ""), element.get("id", 0))] = element
 
-    time.sleep(RATE_LIMIT_SECONDS)
-    payload = fetch_bbox(bbox)
-    envelope = {
-        "_meta": {
-            "source": "overpass",
-            "site": site["name"],
-            "bbox": list(bbox),
-            "fetched_at": dt.datetime.now(dt.UTC).isoformat(),
-        },
-        "payload": payload,
-    }
-    s3.put_json(client, BRONZE_BUCKET, key, envelope)
-    logger.info(
-        "overpass_extracted site=%s elements=%d", site["name"], len(payload.get("elements", []))
-    )
-    return payload, key, "extract"
+    source = "cache" if all_cached else "extract"
+    return {"elements": list(merged.values())}, ",".join(keys), source
 
 
 def handler(event, context) -> dict:
