@@ -13,3 +13,4 @@ SILVER_BUCKET = os.getenv("SILVER_BUCKET", "tumi-silver")
 
 SOURCE_OPEN_METEO = "open_meteo"
 SOURCE_EXCHANGE_RATE = "exchange_rate"
+SOURCE_POI = "poi"

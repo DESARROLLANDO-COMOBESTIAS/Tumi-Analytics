@@ -5,7 +5,7 @@ Ejecutar repetidas veces no duplica datos (ON CONFLICT DO NOTHING).
 
 from sqlalchemy.dialects.postgresql import insert
 
-from infrastructure.db.models import City
+from infrastructure.db.models import City, PoiCategory
 from infrastructure.db.session import SessionLocal
 
 CITIES: list[tuple[str, str, float, float, int]] = [
@@ -37,6 +37,31 @@ CITIES: list[tuple[str, str, float, float, int]] = [
 ]
 
 
+POI_CATEGORIES: list[tuple[str, str]] = [
+    ("hoteles", "Hoteles y alojamientos"),
+    ("restaurantes", "Restaurantes y bares"),
+    ("museos", "Museos"),
+    ("galerias", "Galerías de arte"),
+    ("arte_urbano", "Arte y esculturas"),
+    ("parques", "Parques y jardines"),
+    ("reservas", "Reservas naturales"),
+    ("hospitales", "Hospitales"),
+    ("atracciones", "Atracciones turísticas"),
+    ("arqueologicos", "Sitios arqueológicos y ruinas"),
+    ("castillos", "Castillos y fortalezas"),
+    ("murallas", "Murallas y portadas históricas"),
+    ("monumentos", "Monumentos y memoriales"),
+    ("iglesias", "Iglesias y monasterios"),
+    ("miradores", "Miradores"),
+    ("playas", "Playas"),
+    ("montanas", "Montañas y picos"),
+    ("cuevas", "Cuevas y cavernas"),
+    ("volcanes", "Volcanes"),
+    ("aguas_termales", "Aguas termales y manantiales"),
+    ("sin_clasificar", "Sin clasificar (revisar)"),
+]
+
+
 def run() -> None:
     with SessionLocal() as session:
         statement = insert(City).values(
@@ -52,8 +77,18 @@ def run() -> None:
             ]
         ).on_conflict_do_nothing(index_elements=["name"])
         session.execute(statement)
+
+        category_statement = insert(PoiCategory).values(
+            [
+                {"code": code, "name": name}
+                for code, name in POI_CATEGORIES
+            ]
+        ).on_conflict_do_nothing(index_elements=["code"])
+        session.execute(category_statement)
         session.commit()
-    print(f"Seed completado: {len(CITIES)} capitales de departamento.")
+    print(
+        f"Seed completado: {len(CITIES)} capitales y {len(POI_CATEGORIES)} categorías de POIs."
+    )
 
 
 if __name__ == "__main__":

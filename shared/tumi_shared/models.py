@@ -36,6 +36,7 @@ class City(Base):
     daily_metrics: Mapped[list["DailyCityFact"]] = relationship(
         back_populates="city"
     )
+    poi_metrics: Mapped[list["PoiCityFact"]] = relationship(back_populates="city")
     scores: Mapped[list["TourismScoreFact"]] = relationship(back_populates="city")
 
 
@@ -51,6 +52,9 @@ class CalendarDay(Base):
     daily_metrics: Mapped[list["DailyCityFact"]] = relationship(
         back_populates="calendar_day"
     )
+    poi_metrics: Mapped[list["PoiCityFact"]] = relationship(
+        back_populates="calendar_day"
+    )
     scores: Mapped[list["TourismScoreFact"]] = relationship(
         back_populates="calendar_day"
     )
@@ -62,6 +66,10 @@ class PoiCategory(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     code: Mapped[str] = mapped_column(String(30), unique=True)
     name: Mapped[str] = mapped_column(String(100))
+
+    poi_facts: Mapped[list["PoiCityFact"]] = relationship(
+        back_populates="poi_category"
+    )
 
 
 class DailyCityFact(Base):
@@ -88,6 +96,26 @@ class DailyCityFact(Base):
     calendar_day: Mapped[CalendarDay] = relationship(
         back_populates="daily_metrics"
     )
+
+
+class PoiCityFact(Base):
+    __tablename__ = "fact_poi_city"
+    __table_args__ = (
+        UniqueConstraint(
+            "city_id", "date_id", "poi_category_id",
+            name="uq_fact_poi_city_city_date_category",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    city_id: Mapped[int] = mapped_column(ForeignKey("dim_city.id"))
+    date_id: Mapped[date] = mapped_column(ForeignKey("dim_date.date"))
+    poi_category_id: Mapped[int] = mapped_column(ForeignKey("dim_poi_category.id"))
+    count: Mapped[int] = mapped_column(Integer, default=0)
+
+    city: Mapped[City] = relationship(back_populates="poi_metrics")
+    calendar_day: Mapped[CalendarDay] = relationship(back_populates="poi_metrics")
+    poi_category: Mapped[PoiCategory] = relationship(back_populates="poi_facts")
 
 
 class TourismScoreFact(Base):

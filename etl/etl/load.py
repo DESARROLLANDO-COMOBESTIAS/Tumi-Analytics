@@ -5,7 +5,13 @@ from datetime import date
 from sqlalchemy import create_engine, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
-from tumi_shared.models import CalendarDay, City, DailyCityFact
+from tumi_shared.models import (
+    CalendarDay,
+    City,
+    DailyCityFact,
+    PoiCategory,
+    PoiCityFact,
+)
 
 from etl.config import DATABASE_URL
 
@@ -79,3 +85,39 @@ def _upsert_daily_fact(session: Session, city_id: int, day: date, values: dict) 
         set_={column: statement.excluded[column] for column in values},
     )
     session.execute(statement)
+
+
+def load_poi(sync_date: date, per_city: dict[str, dict[str, int]]) -> int:
+    """Escribe conteos de POIs por ciudad/categoría en fact_poi_city.
+
+    ``per_city`` mapea nombre de ciudad -> {código_categoría: conteo}.
+    Devuelve el nº de filas insertadas/actualizadas (solo conteos > 0).
+    """
+    engine = create_engine(DATABASE_URL)
+    loaded = 0
+    with Session(engine) as session:
+        _upsert_calendar_day(session, sync_date)
+        cities = {c.name: c for c in session.scalars(select(City))}
+        categories = {c.code: c for c in session.scalars(select(PoiCategory))}
+        for city_name, counts in per_city.items():
+            city = cities.get(city_name)
+            if city is None:
+                continue
+            for code, count in counts.items():
+                if count <= 0:
+                    continue
+                category = categories.get(code)
+                if category is None:
+                    continue
+                statement = insert(PoiCityFact).values(
+                    city_id=city.id, date_id=sync_date,
+                    poi_category_id=category.id, count=count,
+                )
+                statement = statement.on_conflict_do_update(
+                    index_elements=["city_id", "date_id", "poi_category_id"],
+                    set_={"count": statement.excluded["count"]},
+                )
+                session.execute(statement)
+                loaded += 1
+        session.commit()
+    return loaded
