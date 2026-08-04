@@ -74,6 +74,14 @@ NOISE_TAGS: frozenset[tuple[str, str]] = frozenset(
         ("historic", "yes"),
         ("tourism", "yes"),
         ("leisure", "yes"),
+        # Señales del censo de sin_clasificar: tumbas de cementerio y ocio menor.
+        ("historic", "tomb"),
+        ("leisure", "bleachers"),
+        ("leisure", "dog_park"),
+        ("leisure", "picnic_table"),
+        ("leisure", "sports_hall"),
+        ("leisure", "escape_game"),
+        ("leisure", "bowling_alley"),
     }
 )
 
@@ -131,6 +139,13 @@ CATEGORY_TAGS: dict[str, list[tuple[str, str]]] = {
     "cuevas": [("natural", "cave_entrance")],
     "volcanes": [("natural", "volcano")],
     "aguas_termales": [("natural", "hot_spring"), ("natural", "spring"), ("natural", "geyser")],
+    "informacion_turistica": [("tourism", "information")],
+    "ermitas_cruces": [("historic", "wayside_shrine"), ("historic", "wayside_cross")],
+    "marinas_resorts": [
+        ("leisure", "marina"),
+        ("leisure", "resort"),
+        ("leisure", "water_park"),
+    ],
 }
 
 UNCLASSIFIED = "sin_clasificar"

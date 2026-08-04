@@ -2,7 +2,7 @@
 
 from datetime import date
 
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, delete, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 from tumi_shared.models import (
@@ -91,12 +91,15 @@ def load_poi(sync_date: date, per_city: dict[str, dict[str, int]]) -> int:
     """Escribe conteos de POIs por ciudad/categoría en fact_poi_city.
 
     ``per_city`` mapea nombre de ciudad -> {código_categoría: conteo}.
+    Es un snapshot diario: se borran las filas del día y se reinsertan,
+    para que categorías que pasaron a 0 no queden con datos viejos.
     Devuelve el nº de filas insertadas/actualizadas (solo conteos > 0).
     """
     engine = create_engine(DATABASE_URL)
     loaded = 0
     with Session(engine) as session:
         _upsert_calendar_day(session, sync_date)
+        session.execute(delete(PoiCityFact).where(PoiCityFact.date_id == sync_date))
         cities = {c.name: c for c in session.scalars(select(City))}
         categories = {c.code: c for c in session.scalars(select(PoiCategory))}
         for city_name, counts in per_city.items():

@@ -58,6 +58,9 @@ POI_CATEGORIES: list[tuple[str, str]] = [
     ("cuevas", "Cuevas y cavernas"),
     ("volcanes", "Volcanes"),
     ("aguas_termales", "Aguas termales y manantiales"),
+    ("informacion_turistica", "Oficinas de información turística"),
+    ("ermitas_cruces", "Ermitas y cruces de camino"),
+    ("marinas_resorts", "Marinas, resorts y parques acuáticos"),
     ("sin_clasificar", "Sin clasificar (revisar)"),
 ]
 

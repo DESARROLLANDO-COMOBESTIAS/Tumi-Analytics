@@ -35,6 +35,9 @@ class TestClassifyElement:
             "cuevas": {"natural": "cave_entrance"},
             "volcanes": {"natural": "volcano"},
             "aguas_termales": {"natural": "hot_spring"},
+            "informacion_turistica": {"tourism": "information"},
+            "ermitas_cruces": {"historic": "wayside_shrine"},
+            "marinas_resorts": {"leisure": "marina"},
         }
         for category, tags in cases.items():
             assert category in classify_element(tags), tags
@@ -52,6 +55,8 @@ class TestClassifyElement:
         assert classify_element({"natural": "tree"}) == []
         assert classify_element({"leisure": "pitch"}) == []
         assert classify_element({"natural": "tree", "leisure": "pitch"}) == []
+        assert classify_element({"historic": "tomb"}) == []
+        assert classify_element({"leisure": "bleachers"}) == []
 
     def test_sin_clasificar_para_desconocidos(self):
         assert classify_element({"historic": "aircraft"}) == [UNCLASSIFIED]
@@ -101,5 +106,6 @@ class TestBuildQuery:
             "parques", "reservas", "hospitales", "atracciones", "arqueologicos",
             "castillos", "murallas", "monumentos", "iglesias", "miradores",
             "playas", "montanas", "cuevas", "volcanes", "aguas_termales",
+            "informacion_turistica", "ermitas_cruces", "marinas_resorts",
         }
         assert ALL_CATEGORIES[-1] == UNCLASSIFIED
